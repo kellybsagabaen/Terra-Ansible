@@ -1,0 +1,55 @@
+# ansible/playbook.yml
+
+---
+- name: Configure Nginx web server
+  hosts: webservers # Target the 'webservers' group defined in inventory.ini
+  become: true       # Use sudo inside the container
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        force_apt_get: yes # Ensures apt-get is used for full update
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Create Nginx default config directory if it doesn't exist
+      file:
+        path: /etc/nginx/sites-available
+        state: directory
+        mode: '0755'
+
+    - name: Copy Nginx default site configuration
+      copy:
+        src: files/default_nginx.conf
+        dest: /etc/nginx/sites-available/default
+        mode: '0644'
+      notify: Reload Nginx
+
+    - name: Ensure default site is enabled (symlink)
+      file:
+        src: /etc/nginx/sites-available/default
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+      notify: Reload Nginx
+
+    - name: Copy index.html
+      copy:
+        src: files/index.html
+        dest: /var/www/html/index.html
+        mode: '0644'
+
+    - name: Start and enable Nginx service
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
